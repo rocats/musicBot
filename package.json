@@ -2,10 +2,13 @@
   "dependencies": {
     "@nondanee/unblockneteasemusic": "^0.25.3",
     "axios": "^0.21.1",
+    "crypto": "^1.0.1",
     "md5": "^2.3.0",
     "music-metadata": "^7.5.3",
+    "node-telegram-bot-api": "^0.51.0",
     "pac-proxy-agent": "^4.0.0",
     "qrcode": "^1.4.4",
+    "request": "^2.88.2",
     "tunnel": "^0.0.6"
   }
 }
