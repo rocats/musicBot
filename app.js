@@ -210,6 +210,12 @@ async function musicCallback(msg, match) {
     bot.onText(new RegExp(`^@${botUsername}\\s+/music\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s*@${botUsername}\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s+(.+)\\s*@${botUsername}\\s*$`), musicCallback);
+    bot.onText(new RegExp(`^/music\\s+(.+)\\s*$`), (msg, match) => {
+        if (msg.chat.type !== 'private') {
+            return
+        }
+        musicCallback(msg, match)
+    });
 
     bot.on('callback_query', (query) => {
         const {
