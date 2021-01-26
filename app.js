@@ -130,7 +130,6 @@ async function musicCallback(msg, match) {
             createdAt: Date.now(),
         }
         let matrix = makeMatrix(session)
-        console.log(content, "ok")
         bot.sendMessage(chatID, content, {
             reply_to_message_id: sessionID,
             reply_markup: {
@@ -243,6 +242,10 @@ async function musicCallback(msg, match) {
                         return
                     }
                     if (!row) {
+                        bot.editMessageText("没得窜瞌睡! 在下了在下了!!", {
+                            chat_id: chatID,
+                            message_id: msgID,
+                        })
                         console.log("miss", song.id, from_domain)
                         // 本地下载并上传
                         request({
@@ -253,14 +256,19 @@ async function musicCallback(msg, match) {
                                 errFunc(err, "拉取失败")
                                 return
                             }
+                            bot.editMessageText("莫慌! 马上传好了!!", {
+                                chat_id: chatID,
+                                message_id: msgID,
+                            })
                             bot.sendAudio(chatID, buffer, {}, {
                                 filename: name
                             }).then((msg) => {
                                 bot.deleteMessage(chatID, msgID)
-                                db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID])
+                                db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
+                                    err && console.error(err)
+                                })
                                 db.run(`INSERT INTO recollections VALUES (?,?,?)`, [song.id, from_domain, msg.audio.file_id], (err) => {
-                                    console.error(err)
-                                    //pass
+                                    err && console.error(err)
                                 })
                             }).catch((err) => {
                                 errFunc(err, "上传失败")
@@ -269,15 +277,25 @@ async function musicCallback(msg, match) {
                         return
                     }
                     console.log("hit", song.id, from_domain)
+                    bot.editMessageText("莫慌! 马上传好了!!", {
+                        chat_id: chatID,
+                        message_id: msgID,
+                    })
                     bot.sendAudio(chatID, row.file_id).then((msg) => {
                         bot.deleteMessage(chatID, msgID)
-                        db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID])
+                        db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
+                            err && console.error(err)
+                        })
                     }).catch((err) => {
                         errFunc(err, "上传失败")
                     })
                 })
-
             }
+
+            bot.editMessageReplyMarkup({}, {
+                chat_id: chatID,
+                message_id: msgID,
+            })
 
             // FIXME: 调用网易云接口下载需要登录，合适吗
             // 不登录似乎也可以获取到较好结果
@@ -289,6 +307,10 @@ async function musicCallback(msg, match) {
                     errFunc(err, "拉取失败")
                 })
             } else {
+                bot.editMessageText("等一哈, 在搜了!!", {
+                    chat_id: chatID,
+                    message_id: msgID,
+                })
                 match(song.id, ['qq', 'kugou', 'kuwo', 'migu']).then(async ([res, meta]) => {
                     let {size, url} = res
                     sendFunc(url, meta.name)
