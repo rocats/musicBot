@@ -1,6 +1,6 @@
 let p = process.env.PROXY
 const token = process.env.TELEGRAM_APITOKEN
-const md5check = !(process.env.NO_MD5CHECK === "1" || process.env.NO_MD5CHECK.toLowerCase() === "true")
+const md5check = !(process.env.NO_MD5CHECK && (process.env.NO_MD5CHECK === "1" || process.env.NO_MD5CHECK.toLowerCase() === "true"))
 const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     phone = process.env.NETEASE_PHONE,
     password = process.env.NETEASE_PASSWORD
