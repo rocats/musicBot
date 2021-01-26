@@ -1,10 +1,11 @@
 version: '2'
 
 services:
-  musicBot:
-    restart: always
+  musicbot:
+    restart: on-failure
     network_mode: host
+    build:
+      context: .
     environment:
-      - HTTP_PROXY
-      - HTTPS_PROXY
+      - PROXY
       - TELEGRAM_APITOKEN

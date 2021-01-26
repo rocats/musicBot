@@ -1,12 +1,4 @@
-let p = process.env.HTTP_PROXY || process.env.HTTPS_PROXY
-if (p.indexOf("://") < 0) {
-    p = "http://" + p
-}
-p = new URL(p)
-const proxy = {
-    host: p.hostname,
-    port: p.port || 80
-}
+let p = process.env.PROXY
 const token = process.env.TELEGRAM_APITOKEN
 const pageSize = 10
 const dbPath = './data.db'
@@ -21,8 +13,32 @@ const request = require('request')
 const match = require('./match')
 const fs = require('fs')
 const sqlite3 = require('sqlite3').verbose();
-const db = initDB()
+let db = null
 
+
+console.log("Token:", token)
+let proxy = null
+if (p) {
+    if (p.indexOf("://") < 0) {
+        p = "http://" + p
+    }
+    p = new URL(p)
+    proxy = {
+        host: p.hostname,
+        port: parseInt(p.port) || 80
+    }
+    console.log("使用HTTP代理:", proxy.host + ":" + proxy.port)
+} else {
+    console.log("不使用代理")
+}
+const bot = new TelegramBot(token, {
+    polling: true,
+    request: {
+        agent: tunnel.httpsOverHttp({
+            proxy
+        })
+    }
+});
 
 function initDB() {
     let notExist = !fs.existsSync(dbPath)
@@ -50,17 +66,6 @@ function initDB() {
     }
     return db
 }
-
-const agent = tunnel.httpsOverHttp({
-    proxy
-});
-
-const bot = new TelegramBot(token, {
-    polling: true,
-    request: {
-        agent
-    }
-});
 
 function sessionMaxPage(session) {
     return Math.floor(session.count / pageSize) - (session.count % pageSize === 0 ? 1 : 0)
@@ -156,7 +161,8 @@ async function musicCallback(msg, match) {
 (async () => {
     console.log("正在获取bot信息...")
     const botUsername = (await bot.getMe()).username
-    console.log("正在运行:", botUsername)
+    db = initDB()
+    console.log("Username:", botUsername)
 
     bot.onText(new RegExp(`^@${botUsername}\\s+/music\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s*@${botUsername}\\s+(.+)\\s*$`), musicCallback);
