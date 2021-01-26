@@ -329,7 +329,7 @@ async function musicCallback(msg, match) {
                         return
                     }
                     if (!row) {
-                        bot.editMessageText("找到了!! 在下了在下了!!", {
+                        bot.editMessageText("找到了! 在下了在下了!!", {
                             chat_id: chatID,
                             message_id: msgID,
                         }).catch(console.error)
@@ -394,7 +394,7 @@ async function musicCallback(msg, match) {
             }).catch(err => {
                 // pass
             })
-            bot.editMessageText("我再仔细找找...", {
+            bot.editMessageText("似乎...", {
                 chat_id: chatID,
                 message_id: msgID,
             }).catch(console.error)
@@ -421,7 +421,7 @@ async function musicCallback(msg, match) {
                 console.error("检查歌曲是否可用:", err)
             })
             if (needOtherSource) {
-                bot.editMessageText("嗯...", {
+                bot.editMessageText("嗯...我再仔细找找", {
                     chat_id: chatID,
                     message_id: msgID,
                 }).catch(console.error)
