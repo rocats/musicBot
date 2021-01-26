@@ -5,7 +5,7 @@ const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     password = process.env.NETEASE_PASSWORD
 const pageSize = 10
 const dbPath = './data.db'
-const source = [/*'qq',*/ 'kuwo'/*, 'migu'*/, 'kugou']
+const source = [/*'qq', 'migu',*/'kuwo', 'kugou']
 
 const {
     cloudsearch,
@@ -21,6 +21,7 @@ const match = require('./match')
 const fs = require('fs')
 const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
+const decodeKuwo = require('./kuwoDecoder')
 let db = null
 let cookie = null
 
@@ -330,6 +331,9 @@ async function musicCallback(msg, match) {
                                 errFunc(err, "下载失败")
                                 return
                             }
+                            if (url.indexOf("kuwo.cn") >= 0 && url.substr(url.length - 4) === ".mp3") {
+                                buffer = decodeKuwo(buffer)
+                            }
                             bot.editMessageText("莫慌! 马上传好了!!", {
                                 chat_id: chatID,
                                 message_id: msgID,
@@ -406,7 +410,7 @@ async function musicCallback(msg, match) {
                 }).catch(console.error)
                 match(song.id, source).then(async ([res, meta]) => {
                     let {size, url} = res
-                    sendFunc(url, meta.name)
+                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")))
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
