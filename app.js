@@ -130,6 +130,11 @@ async function musicCallback(msg, match) {
 
     try {
         const sessionID = msg.message_id
+        const msgPromise = bot.sendMessage(chatID, `嗯.. 这就去找 ${content}`, {
+            reply_to_message_id: sessionID,
+        }).then(msg => {
+            return msg.message_id
+        }).catch(console.error)
         const resp = await cloudsearch({
             keywords: content,
         })
@@ -150,12 +155,16 @@ async function musicCallback(msg, match) {
             count: result.songs.length,
             createdAt: Date.now(),
         }
+        const msgID = await msgPromise
+        if (!msgID) {
+            return
+        }
         let matrix = makeMatrix(session)
-        bot.sendMessage(chatID, content, {
-            reply_to_message_id: sessionID,
-            reply_markup: {
-                inline_keyboard: matrix
-            }
+        bot.editMessageReplyMarkup({
+            inline_keyboard: matrix
+        }, {
+            chat_id: chatID,
+            message_id: msgID,
         }).then((msg) => {
             db.run("INSERT INTO sessions VALUES (?,?,?)", [sessionID, JSON.stringify(session), Date.now()], (err) => {
                 err && console.error(err)
@@ -338,10 +347,12 @@ async function musicCallback(msg, match) {
                 })
             }
 
-            bot.editMessageReplyMarkup({}, {
+            bot.editMessageReplyMarkup({inline_keyboard: null}, {
                 chat_id: chatID,
                 message_id: msgID,
-            }).catch(console.error)
+            }).catch(err => {
+                // pass
+            })
             bot.editMessageText("在查了在查了!", {
                 chat_id: chatID,
                 message_id: msgID,
@@ -349,7 +360,7 @@ async function musicCallback(msg, match) {
             let needOtherSource = true
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
-                    await song_url({id: song.id, br: 320000, cookie}).then((res) => {
+                    await song_url({id: song.id, /*br: 320000,*/ cookie}).then((res) => {
                         const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
                         if (freeTrialInfo) {
                             return
