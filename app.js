@@ -309,6 +309,7 @@ async function musicCallback(msg, match) {
                         }).catch(console.error)
                         console.log("miss", song.id, from_domain)
                         // 本地下载并上传
+                        console.log(`song.id: ${song.id}, url: ${url}`)
                         request({
                             url,
                             encoding: null
@@ -322,7 +323,8 @@ async function musicCallback(msg, match) {
                                 message_id: msgID,
                             }).catch(console.error)
                             bot.sendAudio(chatID, buffer, {}, {
-                                filename: name
+                                filename: name,
+                                contentType: response.headers["content-type"]
                             }).then((msg) => {
                                 bot.deleteMessage(chatID, msgID)
                                 db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
@@ -372,7 +374,7 @@ async function musicCallback(msg, match) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - "))
+                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")))
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
