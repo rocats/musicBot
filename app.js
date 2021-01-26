@@ -1,20 +1,26 @@
 let p = process.env.PROXY
 const token = process.env.TELEGRAM_APITOKEN
+const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
+    phone = process.env.NETEASE_PHONE,
+    password = process.env.NETEASE_PASSWORD
 const pageSize = 10
 const dbPath = './data.db'
 
 const {
     cloudsearch,
-    song_url
+    song_url,
+    login_cellphone,
+    login_refresh
 } = require('./NeteaseCloudMusicApi/main')
 const TelegramBot = require('node-telegram-bot-api')
 const tunnel = require('tunnel')
 const request = require('request')
 const match = require('./match')
 const fs = require('fs')
+const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
 let db = null
-
+let cookie = null
 
 console.log("Token:", token)
 let proxy = null
@@ -40,31 +46,34 @@ const bot = new TelegramBot(token, {
     }
 });
 
+
 function initDB() {
-    let notExist = !fs.existsSync(dbPath)
-    let db = new sqlite3.Database(dbPath, (err) => {
-        if (err) {
-            return console.error(err.message);
-        }
-        console.log('成功连接 SQLite 数据库');
-    });
-    if (notExist) {
-        db.serialize(() => {
-            db.run(`CREATE TABLE sessions (
+    return new Promise((resolve, reject) => {
+        let notExist = !fs.existsSync(dbPath)
+        let db = new sqlite3.Database(dbPath, (err) => {
+            if (err) {
+                return reject(err.message);
+            }
+            console.log('成功连接 SQLite 数据库');
+        });
+        if (notExist) {
+            db.serialize(() => {
+                db.run(`CREATE TABLE sessions (
                 id INTEGER PRIMARY KEY,
                 session_json TEXT NOT NULL,
                 created_at INTEGER NOT NULL
             )`)
-            db.run(`CREATE TABLE recollections (
+                db.run(`CREATE TABLE recollections (
                 song_id INTEGER,
                 from_domain TEXT,
                 file_id TEXT NOT NULL,
                 PRIMARY KEY(song_id,from_domain)
             )`)
-        })
-        console.log('数据库建表完毕')
-    }
-    return db
+            })
+            console.log('数据库建表完毕')
+        }
+        return resolve(db)
+    })
 }
 
 function sessionMaxPage(session) {
@@ -159,10 +168,34 @@ async function musicCallback(msg, match) {
 }
 
 (async () => {
-    console.log("正在获取bot信息...")
+    console.log("正在获取bot信息")
     const botUsername = (await bot.getMe()).username
-    db = initDB()
+    db = await initDB().catch((err) => {
+        console.error(err)
+        os.exit(1)
+    })
     console.log("Username:", botUsername)
+    if (phone && password) {
+        console.log("正在登录网易云")
+        const resp = await login_cellphone({phone, password, countrycode}).catch(err => {
+            console.error(err)
+            os.exit(1)
+        })
+        if (resp.status !== 200 || resp.body.code !== 200) {
+            console.error(resp)
+            os.exit(1)
+        }
+        cookie = resp.body.cookie
+    } else {
+        console.log("您可以通过登录网易云vip账号以扩展vip歌曲：设置环境变量NETEASE_PHONE/NETEASE_PASSWORD, 并在需要时设置NETEASE_COUNTRYCODE")
+    }
+
+    // 十分钟刷新一次登录状态
+    setInterval(() => {
+        login_refresh({
+            cookie
+        })
+    }, 10 * 60 * 1000)
 
     bot.onText(new RegExp(`^@${botUsername}\\s+/music\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s*@${botUsername}\\s+(.+)\\s*$`), musicCallback);
@@ -190,14 +223,14 @@ async function musicCallback(msg, match) {
             bot.sendMessage(chatID, `${msg}: ${err}`, {
                 reply_to_message_id: sessionID
             }).then((msg) => {
-                setTimeout(() => {
-                    bot.deleteMessage(chatID, msg.message_id)
-                }, 10000)
+                // setTimeout(() => {
+                //     bot.deleteMessage(chatID, msg.message_id)
+                // }, 10000)
             })
             bot.answerCallbackQuery(queryID)
         }
 
-        db.get(`SELECT session_json FROM sessions WHERE id = ?`, [sessionID], (err, row) => {
+        db.get(`SELECT session_json FROM sessions WHERE id = ?`, [sessionID], async (err, row) => {
             if (err) {
                 errFunc(err, "服务器内部错误")
                 return
@@ -254,7 +287,7 @@ async function musicCallback(msg, match) {
                         return
                     }
                     if (!row) {
-                        bot.editMessageText("没得窜瞌睡! 在下了在下了!!", {
+                        bot.editMessageText("快马加鞭! 在下了在下了!!", {
                             chat_id: chatID,
                             message_id: msgID,
                         })
@@ -308,22 +341,25 @@ async function musicCallback(msg, match) {
                 chat_id: chatID,
                 message_id: msgID,
             })
-
-            // FIXME: 调用网易云接口下载需要登录，合适吗
-            // 不登录似乎也可以获取到较好结果
+            let needOtherSource = true
             if (!song.copyrightId) {
-                song_url({id: song.id, br: 320000}).then((res) => {
-                    const {body: {data: [{url: url}]}} = res
+                await song_url({id: song.id, br: 320000, cookie}).then((res) => {
+                    const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
+                    if (freeTrialInfo) {
+                        return
+                    }
+                    needOtherSource = false
                     sendFunc(url, songTitle(song, " - "))
                 }).catch((err) => {
                     errFunc(err, "拉取失败")
                 })
-            } else {
+            }
+            if (needOtherSource) {
                 bot.editMessageText("等一哈, 在搜了!!", {
                     chat_id: chatID,
                     message_id: msgID,
                 })
-                match(song.id, ['qq', 'kugou', 'kuwo', 'migu']).then(async ([res, meta]) => {
+                match(song.id, ['qq', 'kuwo', 'migu', 'kugou']).then(async ([res, meta]) => {
                     let {size, url} = res
                     sendFunc(url, meta.name)
                 }).catch((err) => {
