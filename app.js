@@ -120,7 +120,11 @@ function makeMatrix(session) {
             callback_data: `${session.id}/nextPage`
         })
     }
-    controller.length > 1 && matrix.push(controller)
+    controller.push({
+        text: `取消`,
+        callback_data: `${session.id}/close`
+    })
+    controller.length > 2 && matrix.push(controller)
     return matrix
 }
 
@@ -265,6 +269,13 @@ async function musicCallback(msg, match) {
                 return
             }
             if (isNaN(parseInt(i))) {
+                if (i === "close") {
+                    bot.deleteMessage(chatID, msgID).catch(console.error)
+                    db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
+                        err && console.error(err)
+                    })
+                    return
+                }
                 if (i === "lastPage") {
                     if (session.page <= 0) {
                         bot.answerCallbackQuery(queryID)
@@ -327,7 +338,7 @@ async function musicCallback(msg, match) {
                                 filename: name,
                                 contentType: response.headers["content-type"]
                             }).then((msg) => {
-                                bot.deleteMessage(chatID, msgID)
+                                bot.deleteMessage(chatID, msgID).catch(console.error)
                                 db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                                     err && console.error(err)
                                 })
