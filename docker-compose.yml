@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  musicBot:
+    restart: always
+    network_mode: host
+    environment:
+      - HTTP_PROXY
+      - HTTPS_PROXY
+      - TELEGRAM_APITOKEN

@@ -1,5 +1,14 @@
-const token = '1447999257:AAFcupdx7aTRDqyhN_xFl8hDINPDThOyI2I';
-const pageSize = 10;
+let p = process.env.HTTP_PROXY || process.env.HTTPS_PROXY
+if (p.indexOf("://") < 0) {
+    p = "http://" + p
+}
+p = new URL(p)
+const proxy = {
+    host: p.hostname,
+    port: p.port || 80
+}
+const token = process.env.TELEGRAM_APITOKEN
+const pageSize = 10
 const dbPath = './data.db'
 
 const {
@@ -42,17 +51,14 @@ function initDB() {
     return db
 }
 
-const tunnelingAgent = tunnel.httpsOverHttp({
-    proxy: {
-        host: 'localhost',
-        port: 20171
-    }
+const agent = tunnel.httpsOverHttp({
+    proxy
 });
 
 const bot = new TelegramBot(token, {
     polling: true,
     request: {
-        agent: tunnelingAgent
+        agent
     }
 });
 
