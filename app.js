@@ -153,7 +153,7 @@ async function musicCallback(msg, match) {
     console.log("正在运行:", botUsername)
 
     bot.onText(new RegExp(`^@${botUsername}\\s+/music\\s+(.+)\\s*$`), musicCallback);
-    bot.onText(new RegExp(`^/music\\s+@${botUsername}\\s+(.+)\\s*$`), musicCallback);
+    bot.onText(new RegExp(`^/music\\s*@${botUsername}\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s+(.+)\\s*@${botUsername}\\s*$`), musicCallback);
 
     bot.on('callback_query', (query) => {
