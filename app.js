@@ -132,6 +132,7 @@ function makeMatrix(session) {
 async function musicCallback(msg, match) {
     const chatID = msg.chat.id;
     const content = match[1];
+    const fields = content.split(/\s+/)
     console.log(content)
 
     try {
@@ -157,7 +158,17 @@ async function musicCallback(msg, match) {
         let session = {
             id: sessionID,
             chatID,
-            songs: result.songs,
+            songs: result.songs
+                .sort((a, b) => {
+                    let scoreA = fields.some(field => field === a.name) ? 1 : 0
+                    let scoreB = fields.some(field => field === b.name) ? 1 : 0
+                    return scoreB - scoreA
+                })
+                .sort((a, b) => {
+                    let scoreA = (a.ar && a.ar.some(artist => fields.some(field => field === artist.name))) ? 1 : 0
+                    let scoreB = (b.ar && b.ar.some(artist => fields.some(field => field === artist.name))) ? 1 : 0
+                    return scoreB - scoreA
+                }),
             page: 0,
             count: result.songs.length,
             createdAt: Date.now(),
