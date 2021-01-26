@@ -298,7 +298,7 @@ async function musicCallback(msg, match) {
                             encoding: null
                         }, (err, response, buffer) => {
                             if (err) {
-                                errFunc(err, "拉取失败")
+                                errFunc(err, "下载失败")
                                 return
                             }
                             bot.editMessageText("莫慌! 马上传好了!!", {
@@ -340,9 +340,9 @@ async function musicCallback(msg, match) {
             bot.editMessageReplyMarkup({}, {
                 chat_id: chatID,
                 message_id: msgID,
-            })
+            }).catch(console.error)
             let needOtherSource = true
-            if (!song.copyrightId) {
+            if (!song.copyrightId && !song.copyright) {
                 await song_url({id: song.id, br: 320000, cookie}).then((res) => {
                     const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
                     if (freeTrialInfo) {
@@ -351,7 +351,8 @@ async function musicCallback(msg, match) {
                     needOtherSource = false
                     sendFunc(url, songTitle(song, " - "))
                 }).catch((err) => {
-                    errFunc(err, "拉取失败")
+                    errFunc(err, "获取地址失败")
+                    console.log(song)
                 })
             }
             if (needOtherSource) {
@@ -363,7 +364,7 @@ async function musicCallback(msg, match) {
                     let {size, url} = res
                     sendFunc(url, meta.name)
                 }).catch((err) => {
-                    errFunc(err, "拉取失败")
+                    errFunc(err, "匹配地址失败")
                 })
             }
         })
