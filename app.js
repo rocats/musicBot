@@ -187,16 +187,16 @@ async function musicCallback(msg, match) {
             os.exit(1)
         }
         cookie = resp.body.cookie
+
+        // 十分钟刷新一次登录状态
+        setInterval(() => {
+            login_refresh({
+                cookie
+            })
+        }, 10 * 60 * 1000)
     } else {
         console.log("您可以通过登录网易云vip账号以扩展vip歌曲：设置环境变量NETEASE_PHONE/NETEASE_PASSWORD, 并在需要时设置NETEASE_COUNTRYCODE")
     }
-
-    // 十分钟刷新一次登录状态
-    setInterval(() => {
-        login_refresh({
-            cookie
-        })
-    }, 10 * 60 * 1000)
 
     bot.onText(new RegExp(`^@${botUsername}\\s+/music\\s+(.+)\\s*$`), musicCallback);
     bot.onText(new RegExp(`^/music\\s*@${botUsername}\\s+(.+)\\s*$`), musicCallback);
