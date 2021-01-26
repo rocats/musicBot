@@ -138,7 +138,7 @@ async function musicCallback(msg, match) {
         if (code !== 200) {
             bot.sendMessage(chatID, `接口调用失败: ${code}`, {
                 reply_to_message_id: sessionID
-            })
+            }).catch(console.error)
             return
         }
         const result = resp.body.result
@@ -227,7 +227,7 @@ async function musicCallback(msg, match) {
                 // setTimeout(() => {
                 //     bot.deleteMessage(chatID, msg.message_id)
                 // }, 10000)
-            })
+            }).catch(console.error)
             bot.answerCallbackQuery(queryID)
         }
 
@@ -237,7 +237,7 @@ async function musicCallback(msg, match) {
                 return
             }
             if (!row) {
-                bot.deleteMessage(chatID, msgID)
+                bot.deleteMessage(chatID, msgID).catch(console.error)
                 return
             }
             const session = JSON.parse(row.session_json)
@@ -273,7 +273,7 @@ async function musicCallback(msg, match) {
                     db.run("UPDATE sessions SET session_json = ? WHERE id = ?", [JSON.stringify(session), sessionID], (err) => {
                         err && console.error(err)
                     })
-                })
+                }).catch(console.error)
                 return
             }
             i = parseInt(i)
@@ -291,7 +291,7 @@ async function musicCallback(msg, match) {
                         bot.editMessageText("快马加鞭! 在下了在下了!!", {
                             chat_id: chatID,
                             message_id: msgID,
-                        })
+                        }).catch(console.error)
                         console.log("miss", song.id, from_domain)
                         // 本地下载并上传
                         request({
@@ -305,7 +305,7 @@ async function musicCallback(msg, match) {
                             bot.editMessageText("莫慌! 马上传好了!!", {
                                 chat_id: chatID,
                                 message_id: msgID,
-                            })
+                            }).catch(console.error)
                             bot.sendAudio(chatID, buffer, {}, {
                                 filename: name
                             }).then((msg) => {
@@ -326,9 +326,9 @@ async function musicCallback(msg, match) {
                     bot.editMessageText("莫慌! 马上传好了!!", {
                         chat_id: chatID,
                         message_id: msgID,
-                    })
+                    }).catch(console.error)
                     bot.sendAudio(chatID, row.file_id).then((msg) => {
-                        bot.deleteMessage(chatID, msgID)
+                        bot.deleteMessage(chatID, msgID).catch(console.error)
                         db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                             err && console.error(err)
                         })
@@ -339,6 +339,10 @@ async function musicCallback(msg, match) {
             }
 
             bot.editMessageReplyMarkup({}, {
+                chat_id: chatID,
+                message_id: msgID,
+            }).catch(console.error)
+            bot.editMessageText("在查了在查了!", {
                 chat_id: chatID,
                 message_id: msgID,
             }).catch(console.error)
@@ -368,7 +372,7 @@ async function musicCallback(msg, match) {
                 bot.editMessageText("等一哈, 在搜了!!", {
                     chat_id: chatID,
                     message_id: msgID,
-                })
+                }).catch(console.error)
                 match(song.id, ['qq', 'kuwo', 'migu', 'kugou']).then(async ([res, meta]) => {
                     let {size, url} = res
                     sendFunc(url, meta.name)
