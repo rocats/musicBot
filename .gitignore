@@ -1,6 +1,5 @@
 .vscode
 .idea
 node_modules
-NeteaseCloudMusicApi
 yarn-*.log
 *.db
