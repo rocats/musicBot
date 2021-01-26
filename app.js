@@ -1,5 +1,6 @@
 let p = process.env.PROXY
 const token = process.env.TELEGRAM_APITOKEN
+const md5check = !(process.env.NO_MD5CHECK === "1" || process.env.NO_MD5CHECK.toLowerCase() === "true")
 const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     phone = process.env.NETEASE_PHONE,
     password = process.env.NETEASE_PASSWORD
@@ -344,8 +345,8 @@ async function musicCallback(msg, match) {
                                 errFunc(err, "下载失败")
                                 return
                             }
-                            if (md5 && md5Hash(buffer) !== md5.toLowerCase()) {
-                                errFunc(err, "MD5校验失败")
+                            if (md5check && md5 && md5Hash(buffer) !== md5.toLowerCase()) {
+                                errFunc(name, "MD5校验失败")
                                 return
                             }
                             if (url.indexOf("kuwo.cn") >= 0 && url.substr(url.length - 4) === ".mp3") {
