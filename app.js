@@ -22,6 +22,7 @@ const fs = require('fs')
 const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
 const decodeKuwo = require('./kuwoDecoder')
+const md5 = require('md5')
 let db = null
 let cookie = null
 
@@ -319,7 +320,7 @@ async function musicCallback(msg, match) {
             i = parseInt(i)
             const song = session.songs[i]
 
-            const sendFunc = function (url, name) {
+            const sendFunc = function (url, name, md5) {
                 let from_domain = new URL(url).hostname
                 let fields = from_domain.split(".")
                 from_domain = fields.slice(fields.length - 2 >= 0 ? fields.length - 2 : 0).join(".")
@@ -328,7 +329,7 @@ async function musicCallback(msg, match) {
                         return
                     }
                     if (!row) {
-                        bot.editMessageText("快马加鞭! 在下了在下了!!", {
+                        bot.editMessageText("找到了!! 在下了在下了!!", {
                             chat_id: chatID,
                             message_id: msgID,
                         }).catch(console.error)
@@ -343,10 +344,14 @@ async function musicCallback(msg, match) {
                                 errFunc(err, "下载失败")
                                 return
                             }
+                            if (md5 && md5(buffer) !== md5.toLowerCase()) {
+                                errFunc(err, "MD5校验失败")
+                                return
+                            }
                             if (url.indexOf("kuwo.cn") >= 0 && url.substr(url.length - 4) === ".mp3") {
                                 buffer = decodeKuwo(buffer)
                             }
-                            bot.editMessageText("莫慌! 马上传好了!!", {
+                            bot.editMessageText("就要传好了!!", {
                                 chat_id: chatID,
                                 message_id: msgID,
                             }).catch(console.error)
@@ -368,7 +373,7 @@ async function musicCallback(msg, match) {
                         return
                     }
                     console.log("hit", song.id, from_domain)
-                    bot.editMessageText("莫慌! 马上传好了!!", {
+                    bot.editMessageText("马上传好了!!", {
                         chat_id: chatID,
                         message_id: msgID,
                     }).catch(console.error)
@@ -389,7 +394,7 @@ async function musicCallback(msg, match) {
             }).catch(err => {
                 // pass
             })
-            bot.editMessageText("在查了在查了!", {
+            bot.editMessageText("我再仔细找找...", {
                 chat_id: chatID,
                 message_id: msgID,
             }).catch(console.error)
@@ -397,12 +402,12 @@ async function musicCallback(msg, match) {
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
                     await song_url({id: song.id, br: 320000, cookie}).then((res) => {
-                        const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
+                        const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo, md5: md5}]}} = res
                         if (freeTrialInfo) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")))
+                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5)
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -413,16 +418,16 @@ async function musicCallback(msg, match) {
                     console.log(song.id, err.body.message)
                     return
                 }
-                console.error("检查歌曲是否可用失败", err)
+                console.error("检查歌曲是否可用:", err)
             })
             if (needOtherSource) {
-                bot.editMessageText("等一哈, 在搜了!!", {
+                bot.editMessageText("嗯...", {
                     chat_id: chatID,
                     message_id: msgID,
                 }).catch(console.error)
                 match(song.id, source).then(async ([res, meta]) => {
-                    let {size, url} = res
-                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")))
+                    let {size, url, md5} = res
+                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
