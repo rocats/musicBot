@@ -22,7 +22,7 @@ const fs = require('fs')
 const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
 const decodeKuwo = require('./kuwoDecoder')
-const md5 = require('md5')
+const md5Hash = require('md5')
 let db = null
 let cookie = null
 
@@ -344,7 +344,7 @@ async function musicCallback(msg, match) {
                                 errFunc(err, "下载失败")
                                 return
                             }
-                            if (md5 && md5(buffer) !== md5.toLowerCase()) {
+                            if (md5 && md5Hash(buffer) !== md5.toLowerCase()) {
                                 errFunc(err, "MD5校验失败")
                                 return
                             }
