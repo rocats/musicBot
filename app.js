@@ -115,7 +115,7 @@ function makeMatrix(session) {
         text: `${session.page + 1} / ${sessionMaxPage(session) + 1}`,
         callback_data: `#`
     })
-    if (l + pageSize - 1 < session.count) {
+    if (l + pageSize < session.count) {
         controller.push({
             text: "下一页",
             callback_data: `${session.id}/nextPage`
@@ -143,6 +143,7 @@ async function musicCallback(msg, match) {
         }).catch(console.error)
         const resp = await cloudsearch({
             keywords: content,
+            limit: 100
         })
         let code = resp.status
         code !== 200 || (code = resp.body.code)
