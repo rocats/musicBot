@@ -10,7 +10,8 @@ const {
     cloudsearch,
     song_url,
     login_cellphone,
-    login_refresh
+    login_refresh,
+    check_music
 } = require('./NeteaseCloudMusicApi/main')
 const TelegramBot = require('node-telegram-bot-api')
 const tunnel = require('tunnel')
@@ -342,19 +343,27 @@ async function musicCallback(msg, match) {
                 message_id: msgID,
             }).catch(console.error)
             let needOtherSource = true
-            if (!song.copyrightId && !song.copyright) {
-                await song_url({id: song.id, br: 320000, cookie}).then((res) => {
-                    const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
-                    if (freeTrialInfo) {
-                        return
-                    }
-                    needOtherSource = false
-                    sendFunc(url, songTitle(song, " - "))
-                }).catch((err) => {
-                    errFunc(err, "获取地址失败")
-                    console.log(song)
-                })
-            }
+            await check_music({id: song.id}).then(async (resp) => {
+                if (resp.body.success) {
+                    await song_url({id: song.id, br: 320000, cookie}).then((res) => {
+                        const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo}]}} = res
+                        if (freeTrialInfo) {
+                            return
+                        }
+                        needOtherSource = false
+                        sendFunc(url, songTitle(song, " - "))
+                    }).catch((err) => {
+                        console.error("获取地址失败", err)
+                    })
+                }
+            }).catch((err) => {
+                if (err.body && err.body.success === false) {
+                    // 正常
+                    console.log(song.id, err.body.message)
+                    return
+                }
+                console.error("检查歌曲是否可用失败", err)
+            })
             if (needOtherSource) {
                 bot.editMessageText("等一哈, 在搜了!!", {
                     chat_id: chatID,
