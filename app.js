@@ -5,6 +5,7 @@ const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     password = process.env.NETEASE_PASSWORD
 const pageSize = 10
 const dbPath = './data.db'
+const source = [/*'qq',*/ 'kuwo'/*, 'migu'*/, 'kugou']
 
 const {
     cloudsearch,
@@ -392,7 +393,7 @@ async function musicCallback(msg, match) {
                     chat_id: chatID,
                     message_id: msgID,
                 }).catch(console.error)
-                match(song.id, ['qq', 'kuwo', 'migu', 'kugou']).then(async ([res, meta]) => {
+                match(song.id, source).then(async ([res, meta]) => {
                     let {size, url} = res
                     sendFunc(url, meta.name)
                 }).catch((err) => {
