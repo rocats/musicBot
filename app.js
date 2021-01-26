@@ -1,5 +1,6 @@
 const token = '1447999257:AAFcupdx7aTRDqyhN_xFl8hDINPDThOyI2I';
 const pageSize = 10;
+const dbPath = './data.db'
 
 const {
     cloudsearch,
@@ -9,6 +10,37 @@ const TelegramBot = require('node-telegram-bot-api')
 const tunnel = require('tunnel')
 const request = require('request')
 const match = require('./match')
+const fs = require('fs')
+const sqlite3 = require('sqlite3').verbose();
+const db = initDB()
+
+
+function initDB() {
+    let notExist = !fs.existsSync(dbPath)
+    let db = new sqlite3.Database(dbPath, (err) => {
+        if (err) {
+            return console.error(err.message);
+        }
+        console.log('成功连接 SQLite 数据库');
+    });
+    if (notExist) {
+        db.serialize(() => {
+            db.run(`CREATE TABLE sessions (
+                id INTEGER PRIMARY KEY,
+                session_json TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )`)
+            db.run(`CREATE TABLE recollections (
+                song_id INTEGER,
+                from_domain TEXT,
+                file_id TEXT NOT NULL,
+                PRIMARY KEY(song_id,from_domain)
+            )`)
+        })
+        console.log('数据库建表完毕')
+    }
+    return db
+}
 
 const tunnelingAgent = tunnel.httpsOverHttp({
     proxy: {
@@ -23,8 +55,6 @@ const bot = new TelegramBot(token, {
         agent: tunnelingAgent
     }
 });
-
-let sessions = {}
 
 function sessionMaxPage(session) {
     return Math.floor(session.count / pageSize) - (session.count % pageSize === 0 ? 1 : 0)
@@ -98,7 +128,6 @@ async function musicCallback(msg, match) {
             page: 0,
             count: result.songs.length,
             createdAt: Date.now(),
-            messageID: null,
         }
         let matrix = makeMatrix(session)
         console.log(content, "ok")
@@ -108,8 +137,9 @@ async function musicCallback(msg, match) {
                 inline_keyboard: matrix
             }
         }).then((msg) => {
-            session.messageID = msg.message_id
-            sessions[sessionID] = session
+            db.run("INSERT INTO sessions VALUES (?,?,?)", [sessionID, JSON.stringify(session), Date.now()], (err) => {
+                err && console.error(err)
+            })
         }).catch((err) => {
             console.error(err)
         });
@@ -132,6 +162,7 @@ async function musicCallback(msg, match) {
             id: queryID,
             data: callbackData,
             message: {
+                message_id: msgID,
                 chat: {
                     id: chatID
                 }
@@ -143,84 +174,128 @@ async function musicCallback(msg, match) {
         }
         let [sessionID, i] = callbackData.split("/")
         sessionID = parseInt(sessionID)
-        const session = sessions[sessionID]
-        if (!session) {
+
+        const errFunc = function (err, msg = "未知错误") {
+            bot.sendMessage(chatID, `${msg}: ${err}`, {
+                reply_to_message_id: sessionID
+            }).then((msg) => {
+                setTimeout(() => {
+                    bot.deleteMessage(chatID, msg.message_id)
+                }, 10000)
+            })
             bot.answerCallbackQuery(queryID)
-            return
         }
-        if (isNaN(parseInt(i))) {
-            if (i === "lastPage") {
-                if (session.page <= 0) {
-                    bot.answerCallbackQuery(queryID)
-                    return
-                }
-                session.page--
-                console.log("上一页:", session.page)
-            }
-            if (i === "nextPage") {
-                if (session.page >= sessionMaxPage(session)) {
-                    bot.answerCallbackQuery(queryID)
-                    return
-                }
-                session.page++
-                console.log("下一页:", session.page)
-            }
-            const matrix = makeMatrix(session)
-            bot.editMessageReplyMarkup({inline_keyboard: matrix}, {
-                chat_id: chatID,
-                message_id: session.messageID,
-            }).then(() => {
-                sessions[sessionID] = session
-            })
-            return
-        }
-        i = parseInt(i)
-        const song = session.songs[i]
 
-        const sendFunc = function (url, name) {
-            const errFunc = function (err) {
-                bot.sendMessage(chatID, `音乐拉取失败: ${err}`, {
-                    reply_to_message_id: sessionID
-                }).then((msg) => {
-                    setTimeout(() => {
-                        bot.deleteMessage(chatID, msg.message_id)
-                    }, 10000)
-                })
+        db.get(`SELECT session_json FROM sessions WHERE id = ?`, [sessionID], (err, row) => {
+            if (err) {
+                errFunc(err, "服务器内部错误")
+                return
+            }
+            if (!row) {
+                bot.deleteMessage(chatID, msgID)
+                return
+            }
+            const session = JSON.parse(row.session_json)
+
+            if (!(session instanceof Object)) {
+                console.error(session)
+                console.log("无法在数据库中找到sessionID", sessionID)
                 bot.answerCallbackQuery(queryID)
+                return
             }
-            // 本地下载并上传
-            request({
-                url,
-                encoding: null
-            }, (err, response, buffer) => {
-                if (err) {
-                    errFunc(err)
-                    return
+            if (isNaN(parseInt(i))) {
+                if (i === "lastPage") {
+                    if (session.page <= 0) {
+                        bot.answerCallbackQuery(queryID)
+                        return
+                    }
+                    session.page--
+                    console.log("上一页:", session.page)
                 }
-                bot.sendAudio(chatID, buffer, {}, {
-                    filename: name
+                if (i === "nextPage") {
+                    if (session.page >= sessionMaxPage(session)) {
+                        bot.answerCallbackQuery(queryID)
+                        return
+                    }
+                    session.page++
+                    console.log("下一页:", session.page)
+                }
+                const matrix = makeMatrix(session)
+                bot.editMessageReplyMarkup({inline_keyboard: matrix}, {
+                    chat_id: chatID,
+                    message_id: msgID,
                 }).then(() => {
-                    bot.deleteMessage(chatID, session.messageID)
-                }).catch((err) => {
-                    errFunc(err)
+                    db.run("UPDATE sessions SET session_json = ? WHERE id = ?", [JSON.stringify(session), sessionID], (err) => {
+                        err && console.error(err)
+                    })
                 })
-            })
-        }
+                return
+            }
+            i = parseInt(i)
+            const song = session.songs[i]
 
-        // FIXME: 调用网易云接口下载需要登录，合适吗
-        // 不登录似乎也可以获取到较好结果
-        if (!song.copyrightId) {
-            song_url({id: song.id, br: 320000}).then((res) => {
-                const {body: {data: [{url: url}]}} = res
-                sendFunc(url, songTitle(song, " - "))
-            }).catch((err) => {
-                errFunc(err)
-            })
-        } else {
-            match(song.id, ['qq', 'kugou', 'kuwo', 'migu']).then(async ([res, meta]) => {
-                let {size, url} = res
-                sendFunc(url, meta.name)
-            })
-        }
+            const sendFunc = function (url, name) {
+                let from_domain = new URL(url).hostname
+                let fields = from_domain.split(".")
+                from_domain = fields.slice(fields.length - 2 >= 0 ? fields.length - 2 : 0).join(".")
+                db.get(`SELECT file_id FROM recollections WHERE song_id = ? AND from_domain = ?`, [song.id, from_domain], (err, row) => {
+                    if (err) {
+                        return
+                    }
+                    if (!row) {
+                        console.log("miss", song.id, from_domain)
+                        // 本地下载并上传
+                        request({
+                            url,
+                            encoding: null
+                        }, (err, response, buffer) => {
+                            if (err) {
+                                errFunc(err, "拉取失败")
+                                return
+                            }
+                            bot.sendAudio(chatID, buffer, {}, {
+                                filename: name
+                            }).then((msg) => {
+                                bot.deleteMessage(chatID, msgID)
+                                db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID])
+                                db.run(`INSERT INTO recollections VALUES (?,?,?)`, [song.id, from_domain, msg.audio.file_id], (err) => {
+                                    console.error(err)
+                                    //pass
+                                })
+                            }).catch((err) => {
+                                errFunc(err, "上传失败")
+                            })
+                        })
+                        return
+                    }
+                    console.log("hit", song.id, from_domain)
+                    bot.sendAudio(chatID, row.file_id).then((msg) => {
+                        bot.deleteMessage(chatID, msgID)
+                        db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID])
+                    }).catch((err) => {
+                        errFunc(err, "上传失败")
+                    })
+                })
+
+            }
+
+            // FIXME: 调用网易云接口下载需要登录，合适吗
+            // 不登录似乎也可以获取到较好结果
+            if (!song.copyrightId) {
+                song_url({id: song.id, br: 320000}).then((res) => {
+                    const {body: {data: [{url: url}]}} = res
+                    sendFunc(url, songTitle(song, " - "))
+                }).catch((err) => {
+                    errFunc(err, "拉取失败")
+                })
+            } else {
+                match(song.id, ['qq', 'kugou', 'kuwo', 'migu']).then(async ([res, meta]) => {
+                    let {size, url} = res
+                    sendFunc(url, meta.name)
+                }).catch((err) => {
+                    errFunc(err, "拉取失败")
+                })
+            }
+        })
     });
 })()

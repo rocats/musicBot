@@ -9,6 +9,7 @@
     "pac-proxy-agent": "^4.0.0",
     "qrcode": "^1.4.4",
     "request": "^2.88.2",
+    "sqlite3": "^5.0.1",
     "tunnel": "^0.0.6"
   }
 }

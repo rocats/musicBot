@@ -30,7 +30,7 @@ const match = (id, source) => {
             songs = songs.filter(song => song.url)
             if (!songs.length) return Promise.reject()
             console.log(`[${meta.id}] ${meta.name}\n${songs[0].url}`)
-            return [songs[0], meta]
+            return [songs[0], meta, songs]
         })
 }
 
