@@ -26,6 +26,7 @@ const decodeKuwo = require('./kuwoDecoder')
 const md5Hash = require('md5')
 let db = null
 let cookie = null
+let botUsername = ''
 
 console.log("Token:", token)
 let proxy = null
@@ -72,6 +73,8 @@ function initDB() {
                 song_id INTEGER,
                 from_domain TEXT,
                 file_id TEXT NOT NULL,
+                byte_length INTEGER NOT NULL,
+                username TEXT NOT NULL,
                 PRIMARY KEY(song_id,from_domain)
             )`)
             })
@@ -197,9 +200,17 @@ async function musicCallback(msg, match) {
     }
 }
 
+function caption(name, url, byteLength, br) {
+    const dotIndex = name.lastIndexOf(".")
+    if (dotIndex >= 0) {
+        name = name.substr(0, dotIndex)
+    }
+    return `名称: ${name}\n格式: ${url.substr(url.lastIndexOf(".") + 1)}\n音质: ${Math.floor(br / 1000)} kbits/s\n大小: ${(byteLength / 1024 / 1024).toFixed(2)} MB`
+}
+
 (async () => {
     console.log("正在获取 Bot 信息")
-    const botUsername = (await bot.getMe()).username
+    botUsername = (await bot.getMe()).username
     db = await initDB().catch((err) => {
         console.error(err)
         os.exit(1)
@@ -342,11 +353,11 @@ async function musicCallback(msg, match) {
             i = parseInt(i)
             const song = session.songs[i]
 
-            const sendFunc = function (url, name, md5) {
+            const sendFunc = function (url, name, md5, br) {
                 let from_domain = new URL(url).hostname
                 let fields = from_domain.split(".")
                 from_domain = fields.slice(fields.length - 2 >= 0 ? fields.length - 2 : 0).join(".")
-                db.get(`SELECT file_id FROM recollections WHERE song_id = ? AND from_domain = ?`, [song.id, from_domain], (err, row) => {
+                db.get(`SELECT file_id, byte_length FROM recollections WHERE song_id = ? AND from_domain = ? AND username = ?`, [song.id, from_domain, botUsername], (err, row) => {
                     if (err) {
                         return
                     }
@@ -377,7 +388,7 @@ async function musicCallback(msg, match) {
                                 chat_id: chatID,
                                 message_id: msgID,
                             }).catch(console.error)
-                            bot.sendAudio(chatID, buffer, {}, {
+                            bot.sendAudio(chatID, buffer, {caption: caption(name, url, buffer.byteLength, br)}, {
                                 filename: name,
                                 contentType: response.headers["content-type"]
                             }).then((msg) => {
@@ -385,7 +396,7 @@ async function musicCallback(msg, match) {
                                 db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                                     err && console.error(err)
                                 })
-                                db.run(`INSERT INTO recollections VALUES (?,?,?)`, [song.id, from_domain, msg.audio.file_id], (err) => {
+                                db.run(`INSERT INTO recollections VALUES (?,?,?,?,?)`, [song.id, from_domain, msg.audio.file_id, buffer.byteLength, botUsername], (err) => {
                                     err && console.error(err)
                                 })
                             }).catch((err) => {
@@ -399,7 +410,7 @@ async function musicCallback(msg, match) {
                         chat_id: chatID,
                         message_id: msgID,
                     }).catch(console.error)
-                    bot.sendAudio(chatID, row.file_id).then((msg) => {
+                    bot.sendAudio(chatID, row.file_id, {caption: caption(name, url, row.byte_length, br)}).then((msg) => {
                         bot.deleteMessage(chatID, msgID).catch(console.error)
                         db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                             err && console.error(err)
@@ -424,12 +435,12 @@ async function musicCallback(msg, match) {
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
                     await song_url({id: song.id, cookie}).then((res) => {
-                        const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo, md5: md5}]}} = res
+                        const {body: {data: [{url, br, freeTrialInfo, md5}]}} = res
                         if (freeTrialInfo) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5)
+                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5, br)
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -448,8 +459,8 @@ async function musicCallback(msg, match) {
                     message_id: msgID,
                 }).catch(console.error)
                 match(song.id, source).then(async ([res, meta]) => {
-                    let {size, url, md5} = res
-                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5)
+                    let {size, url, md5, br} = res
+                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5, br)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
