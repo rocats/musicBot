@@ -420,6 +420,7 @@ function caption(name, url, byteLength, br) {
                     })
                 })
             }
+            await bot.answerCallbackQuery(queryID)
 
             bot.editMessageReplyMarkup({inline_keyboard: null}, {
                 chat_id: chatID,
