@@ -288,6 +288,7 @@ function caption(name, url, byteLength, br) {
         sessionID = parseInt(sessionID)
 
         const errFunc = function (err, msg = "未知错误") {
+            console.error(err)
             bot.sendMessage(chatID, `${msg}: ${err}`, {
                 reply_to_message_id: sessionID
             }).then((msg) => {
@@ -295,7 +296,8 @@ function caption(name, url, byteLength, br) {
                 //     bot.deleteMessage(chatID, msg.message_id)
                 // }, 10000)
             }).catch(console.error)
-            bot.answerCallbackQuery(queryID)
+            bot.answerCallbackQuery(queryID).catch(() => {
+            })
         }
 
         db.get(`SELECT session_json FROM sessions WHERE id = ?`, [sessionID], async (err, row) => {
@@ -420,22 +422,16 @@ function caption(name, url, byteLength, br) {
                     })
                 })
             }
-
-            await Promise.all([
-                bot.answerCallbackQuery(queryID).catch(err => {
-                    // pass
-                }),
-                bot.editMessageReplyMarkup({inline_keyboard: null}, {
-                    chat_id: chatID,
-                    message_id: msgID,
-                }).catch(err => {
-                    // pass
-                }),
-                bot.editMessageText("似乎...", {
-                    chat_id: chatID,
-                    message_id: msgID,
-                }).catch(console.error)
-            ])
+            bot.editMessageReplyMarkup({inline_keyboard: null}, {
+                chat_id: chatID,
+                message_id: msgID,
+            }).catch(err => {
+                // pass
+            })
+            bot.editMessageText("似乎...", {
+                chat_id: chatID,
+                message_id: msgID,
+            }).catch(console.error)
             let needOtherSource = true
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
