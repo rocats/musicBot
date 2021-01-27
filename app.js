@@ -402,7 +402,7 @@ async function musicCallback(msg, match) {
             let needOtherSource = true
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
-                    await song_url({id: song.id, br: 320000, cookie}).then((res) => {
+                    await song_url({id: song.id, cookie}).then((res) => {
                         const {body: {data: [{url: url, freeTrialInfo: freeTrialInfo, md5: md5}]}} = res
                         if (freeTrialInfo) {
                             return
