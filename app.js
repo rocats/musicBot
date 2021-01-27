@@ -38,7 +38,7 @@ if (p) {
         host: p.hostname,
         port: parseInt(p.port) || 80
     }
-    console.log("使用HTTP代理:", proxy.host + ":" + proxy.port)
+    console.log("使用 HTTP 代理:", proxy.host + ":" + proxy.port)
 } else {
     console.log("不使用代理")
 }
@@ -198,16 +198,16 @@ async function musicCallback(msg, match) {
 }
 
 (async () => {
-    console.log("正在获取bot信息")
+    console.log("正在获取 Bot 信息")
     const botUsername = (await bot.getMe()).username
     db = await initDB().catch((err) => {
         console.error(err)
         os.exit(1)
     })
-    console.log("Username:", botUsername)
+    console.log("Bot Username:", botUsername)
     if (phone && password) {
         console.log("正在登录网易云")
-        const resp = await login_cellphone({phone, password, countrycode}).catch(err => {
+        let resp = await login_cellphone({phone, password, countrycode}).catch(err => {
             console.error(err)
             os.exit(1)
         })
@@ -223,6 +223,27 @@ async function musicCallback(msg, match) {
                 cookie
             })
         }, 10 * 60 * 1000)
+
+        // 获取用户名
+        resp = await login_cellphone({phone, password, countrycode}).catch(err => {
+            console.error(err)
+            os.exit(1)
+        })
+        if (resp.status !== 200 || resp.body.code !== 200) {
+            console.error(resp)
+            os.exit(1)
+        }
+        const {
+            body: {
+                profile: {
+                    nickname
+                },
+                account: {
+                    vipType
+                }
+            }
+        } = resp
+        console.log(`网易云登录成功, 昵称: ${nickname}, vip类型: ${vipType === 0 ? "非会员" : vipType}`)
     } else {
         console.log("您可以通过登录网易云vip账号以扩展vip歌曲：设置环境变量NETEASE_PHONE/NETEASE_PASSWORD, 并在需要时设置NETEASE_COUNTRYCODE")
     }
