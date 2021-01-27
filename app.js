@@ -420,18 +420,22 @@ function caption(name, url, byteLength, br) {
                     })
                 })
             }
-            await bot.answerCallbackQuery(queryID)
 
-            bot.editMessageReplyMarkup({inline_keyboard: null}, {
-                chat_id: chatID,
-                message_id: msgID,
-            }).catch(err => {
-                // pass
-            })
-            bot.editMessageText("似乎...", {
-                chat_id: chatID,
-                message_id: msgID,
-            }).catch(console.error)
+            await Promise.all([
+                bot.answerCallbackQuery(queryID).catch(err => {
+                    // pass
+                }),
+                bot.editMessageReplyMarkup({inline_keyboard: null}, {
+                    chat_id: chatID,
+                    message_id: msgID,
+                }).catch(err => {
+                    // pass
+                }),
+                bot.editMessageText("似乎...", {
+                    chat_id: chatID,
+                    message_id: msgID,
+                }).catch(console.error)
+            ])
             let needOtherSource = true
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
