@@ -1,3 +1,4 @@
+process.env.ENABLE_FLAC = "true"
 let p = process.env.PROXY
 const token = process.env.TELEGRAM_APITOKEN
 const md5check = !(process.env.NO_MD5CHECK && (process.env.NO_MD5CHECK === "1" || process.env.NO_MD5CHECK.toLowerCase() === "true"))
@@ -6,7 +7,7 @@ const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     password = process.env.NETEASE_PASSWORD
 const pageSize = 10
 const dbPath = './data.db'
-const source = [/*'qq', 'migu',*/'kuwo', 'kugou']
+const source = [/*'qq', 'migu', 'kuwo', 'kugou', 'joox', 'xiami', 'youtube'*/'qq', 'kuwo', 'kugou']
 
 const {
     cloudsearch,
@@ -75,6 +76,7 @@ function initDB() {
                 file_id TEXT NOT NULL,
                 byte_length INTEGER NOT NULL,
                 username TEXT NOT NULL,
+                name TEXT NOT NULL,
                 PRIMARY KEY(song_id,from_domain)
             )`)
             })
@@ -355,11 +357,17 @@ function caption(name, url, byteLength, br) {
             i = parseInt(i)
             const song = session.songs[i]
 
-            const sendFunc = function (url, name, md5, br) {
+            const sendFunc = function (url, name, md5, br, info) {
+                if (info && info.name) {
+                    name = info.name
+                    if (info.artists.length) {
+                        name += ' - ' + info.artists.map((artist) => artist.name).join('/')
+                    }
+                }
                 let from_domain = new URL(url).hostname
                 let fields = from_domain.split(".")
                 from_domain = fields.slice(fields.length - 2 >= 0 ? fields.length - 2 : 0).join(".")
-                db.get(`SELECT file_id, byte_length FROM recollections WHERE song_id = ? AND from_domain = ? AND username = ?`, [song.id, from_domain, botUsername], (err, row) => {
+                db.get(`SELECT file_id,byte_length,name FROM recollections WHERE song_id = ? AND from_domain = ? AND username = ?`, [song.id, from_domain, botUsername], (err, row) => {
                     if (err) {
                         return
                     }
@@ -370,7 +378,7 @@ function caption(name, url, byteLength, br) {
                         }).catch(console.error)
                         console.log("miss", song.id, from_domain)
                         // 本地下载并上传
-                        console.log(`song.id: ${song.id}, url: ${url}`)
+                        console.log(`song.id: ${song.id}, url: ${url}, info: ${info.toString()}`)
                         request({
                             url,
                             encoding: null
@@ -383,8 +391,8 @@ function caption(name, url, byteLength, br) {
                                 errFunc(name, "MD5校验失败")
                                 return
                             }
-                            if (url.indexOf("kuwo.cn") >= 0 && url.substr(url.length - 4) === ".mp3") {
-                                buffer = convertID3v1ToID3v2(buffer)
+                            if (url.substr(url.length - 4) === ".mp3") {
+                                buffer = convertID3v1ToID3v2(buffer, info.name, info.artists.map((artist) => artist.name).join('/'), info.album.name)
                             }
                             bot.editMessageText("就要传好了!!", {
                                 chat_id: chatID,
@@ -398,7 +406,7 @@ function caption(name, url, byteLength, br) {
                                 db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                                     err && console.error(err)
                                 })
-                                db.run(`INSERT INTO recollections VALUES (?,?,?,?,?)`, [song.id, from_domain, msg.audio.file_id, buffer.byteLength, botUsername], (err) => {
+                                db.run(`INSERT INTO recollections VALUES (?,?,?,?,?,?)`, [song.id, from_domain, msg.audio.file_id, buffer.byteLength, botUsername, name], (err) => {
                                     err && console.error(err)
                                 })
                             }).catch((err) => {
@@ -412,7 +420,7 @@ function caption(name, url, byteLength, br) {
                         chat_id: chatID,
                         message_id: msgID,
                     }).catch(console.error)
-                    bot.sendAudio(chatID, row.file_id, {caption: caption(name, url, row.byte_length, br)}).then((msg) => {
+                    bot.sendAudio(chatID, row.file_id, {caption: caption(row.name, url, row.byte_length, br)}).then((msg) => {
                         bot.deleteMessage(chatID, msgID).catch(console.error)
                         db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                             err && console.error(err)
@@ -441,7 +449,7 @@ function caption(name, url, byteLength, br) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5, br)
+                        sendFunc(url, songTitle(song, " - "), md5, br)
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -459,9 +467,9 @@ function caption(name, url, byteLength, br) {
                     chat_id: chatID,
                     message_id: msgID,
                 }).catch(console.error)
-                match(song.id, source).then(async ([res, meta]) => {
-                    let {size, url, md5, br} = res
-                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5, br)
+                match(song.id, source).then(async ([meta, songs]) => {
+                    let {size, url, md5, br, info} = songs[0]
+                    sendFunc(url, meta.name, md5, br, info)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })

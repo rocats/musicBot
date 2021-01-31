@@ -89,7 +89,7 @@ function decodeKuwo(buffer) {
     return buffer
 }
 
-function convertID3v1ToID3v2(buffer) {
+function convertID3v1ToID3v2(buffer, defaultTitle = "", defaultArtist = "", defaultAlbum = "") {
     const Version = 3,
         Encoding = "ucs2"
     const ret = readID3v1(buffer)
@@ -99,6 +99,16 @@ function convertID3v1ToID3v2(buffer) {
     }
     //省略comment和genre
     let [title, artist, album, year, comment, genre] = ret
+    if (!title.length) {
+        title = defaultTitle
+    }
+    if (!artist.length) {
+        artist = defaultArtist
+    }
+    if (!album.length) {
+        album = defaultAlbum
+    }
+
     let metadata = Buffer.alloc(32768)
     let offset = 0
     let length = 3
@@ -120,6 +130,7 @@ function convertID3v1ToID3v2(buffer) {
     offset += length
 
     if (title.length) {
+        // console.log(title)
         metadata.writeUInt8(1, offset + 10)
         metadata.writeUInt8(0xff, offset + 11)
         metadata.writeUInt8(0xfe, offset + 12)
@@ -137,6 +148,7 @@ function convertID3v1ToID3v2(buffer) {
         offset += contentSize
     }
     if (artist.length) {
+        // console.log(artist)
         metadata.writeUInt8(1, offset + 10)
         metadata.writeUInt8(0xff, offset + 11)
         metadata.writeUInt8(0xfe, offset + 12)
@@ -173,7 +185,7 @@ function convertID3v1ToID3v2(buffer) {
     if (year.readUInt32BE(0)) {
         metadata.writeUInt8(0, offset + 10)
         let contentSize = metadata.write(year.toString(), offset + 11, "ascii") + 1
-        console.log(contentSize)
+        // console.log(contentSize)
         length = 4
         metadata.write("TYER", offset, "ascii")
         offset += length
@@ -189,6 +201,7 @@ function convertID3v1ToID3v2(buffer) {
     if (offset <= 10) {
         return buffer
     }
+    // console.log(offset)
     let totalSize = offset
     metadata.writeUInt8(totalSize / 0x200000, 6)
     totalSize %= 0x200000

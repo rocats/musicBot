@@ -1,41 +1,41 @@
-const request = require('@nondanee/unblockneteasemusic/src/request')
-const find = require("@nondanee/unblockneteasemusic/src/provider/find")
+const request = require('./UnblockNeteaseMusic/src/request')
+const find = require("./UnblockNeteaseMusic/src/provider/find")
 
 const provider = {
-    netease: require('@nondanee/unblockneteasemusic/src/provider/netease'),
-    qq: require('@nondanee/unblockneteasemusic/src/provider/qq'),
-    xiami: require('@nondanee/unblockneteasemusic/src/provider/xiami'),
-    baidu: require('@nondanee/unblockneteasemusic/src/provider/baidu'),
-    kugou: require('@nondanee/unblockneteasemusic/src/provider/kugou'),
-    kuwo: require('@nondanee/unblockneteasemusic/src/provider/kuwo'),
-    migu: require('@nondanee/unblockneteasemusic/src/provider/migu'),
-    joox: require('@nondanee/unblockneteasemusic/src/provider/joox'),
-    youtube: require('@nondanee/unblockneteasemusic/src/provider/youtube')
+    netease: require('./UnblockNeteaseMusic/src/provider/netease'),
+    qq: require('./UnblockNeteaseMusic/src/provider/qq'),
+    xiami: require('./UnblockNeteaseMusic/src/provider/xiami'),
+    baidu: require('./UnblockNeteaseMusic/src/provider/baidu'),
+    kugou: require('./UnblockNeteaseMusic/src/provider/kugou'),
+    kuwo: require('./UnblockNeteaseMusic/src/provider/kuwo'),
+    migu: require('./UnblockNeteaseMusic/src/provider/migu'),
+    joox: require('./UnblockNeteaseMusic/src/provider/joox'),
+    youtube: require('./UnblockNeteaseMusic/src/provider/youtube')
 }
 
 const match = (id, source) => {
     let meta = {}
     const candidate = (source || global.source || ['qq', 'kuwo', 'migu']).filter(name => name in provider)
     return find(id)
-        .then(info => {
+        .then(async info => {
             meta = info
             return Promise.all(candidate.map(name => provider[name].check(info).catch(() => {
             })))
         })
-        .then(urls => {
-            urls = urls.filter(url => url)
-            return Promise.all(urls.map(url => check(url)))
+        .then(results => {
+            results = results.filter(result => result && result.url)
+            return Promise.all(results.map(result => check(result)))
         })
         .then(songs => {
             songs = songs.filter(song => song.url)
             if (!songs.length) return Promise.reject()
-            console.log(`[${meta.id}] ${meta.name}\n${songs[0].url}`)
-            return [songs[0], meta, songs]
+            return [meta, songs]
         })
 }
 
-const check = url => {
-    const song = {size: 0, br: null, url: null, md5: null}
+const check = result => {
+    const {url, info} = result
+    const song = {size: 0, br: null, url: null, md5: null, info}
     return Promise.race([request('GET', url, {'range': 'bytes=0-8191'}), new Promise((_, reject) => setTimeout(() => reject(504), 5 * 1000))])
         .then(response => {
             if (!response.statusCode.toString().startsWith('2')) return Promise.reject()
