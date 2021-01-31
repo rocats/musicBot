@@ -210,6 +210,37 @@ function caption(name, url, byteLength, br) {
     return `名称: ${name}\n格式: ${url.substr(url.lastIndexOf(".") + 1)}\n音质: ${Math.floor(br / 1000)} kbits/s\n大小: ${(byteLength / 1024 / 1024).toFixed(2)} MB`
 }
 
+// 最小编辑距离
+function minDistance(s1, s2) {
+    const len1 = s1.length
+    const len2 = s2.length
+
+    let matrix = []
+
+    for (let i = 0; i <= len1; i++) {
+        // 构造二维数组
+        matrix[i] = new Array()
+        for (let j = 0; j <= len2; j++) {
+            // 初始化
+            if (i == 0) {
+                matrix[i][j] = j
+            } else if (j == 0) {
+                matrix[i][j] = i
+            } else {
+                // 进行最小值分析
+                let cost = 0
+                if (s1[i - 1] != s2[j - 1]) { // 相同为0，不同置1
+                    cost = 1
+                }
+                const temp = matrix[i - 1][j - 1] + cost
+
+                matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, temp)
+            }
+        }
+    }
+    return matrix[len1][len2] //返回右下角的值
+}
+
 (async () => {
     console.log("正在获取 Bot 信息")
     botUsername = (await bot.getMe()).username
@@ -468,6 +499,15 @@ function caption(name, url, byteLength, br) {
                     message_id: msgID,
                 }).catch(console.error)
                 match(song.id, source).then(async ([meta, songs]) => {
+                    songs.sort((a, b) => {
+                        let scoreA = minDistance(song.name, a.info.name)
+                        let scoreB = minDistance(song.name, b.info.name)
+                        return scoreA - scoreB
+                    }).sort((a, b) => {
+                        let scoreA = song.ar.some(ar => a.info.artists.some(artist => ar === artist))
+                        let scoreB = song.ar.some(ar => b.info.artists.some(artist => ar === artist))
+                        return scoreB - scoreA
+                    })
                     let {size, url, md5, br, info} = songs[0]
                     sendFunc(url, meta.name, md5, br, info)
                 }).catch((err) => {
