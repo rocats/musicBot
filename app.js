@@ -378,7 +378,7 @@ function caption(name, url, byteLength, br) {
                         }).catch(console.error)
                         console.log("miss", song.id, from_domain)
                         // 本地下载并上传
-                        console.log(`song.id: ${song.id}, url: ${url}, info: ${info.toString()}`)
+                        console.log(`song.id: ${song.id}, url: ${url}, info: ${JSON.stringify(info)}`)
                         request({
                             url,
                             encoding: null
