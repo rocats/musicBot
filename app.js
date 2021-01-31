@@ -162,6 +162,12 @@ async function musicCallback(msg, match) {
             return
         }
         const result = resp.body.result
+        if (!result.songs) {
+            bot.sendMessage(chatID, '无搜索结果', {
+                reply_to_message_id: sessionID
+            }).catch(console.error)
+            return
+        }
         let session = {
             id: sessionID,
             chatID,
@@ -499,6 +505,10 @@ function minDistance(s1, s2) {
                     message_id: msgID,
                 }).catch(console.error)
                 match(song.id, source).then(async ([meta, songs]) => {
+                    if (!songs.length) {
+                        errFunc("", "找不到呢...")
+                        return
+                    }
                     songs.sort((a, b) => {
                         let scoreA = minDistance(song.name, a.info.name)
                         let scoreB = minDistance(song.name, b.info.name)
