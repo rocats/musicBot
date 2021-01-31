@@ -480,7 +480,7 @@ function minDistance(s1, s2) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - "), md5, br)
+                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5, br)
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -509,7 +509,7 @@ function minDistance(s1, s2) {
                         return scoreB - scoreA
                     })
                     let {size, url, md5, br, info} = songs[0]
-                    sendFunc(url, meta.name, md5, br, info)
+                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5, br, info)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
