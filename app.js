@@ -582,6 +582,7 @@ function minDistance(s1, s2) {
                             continue
                         }
                         sendFunc(url, meta.name, picUrl, md5, br, info)
+                        break
                     }
                     if (i === songs.length) {
                         errFunc('', "没有找到合适的歌曲")
