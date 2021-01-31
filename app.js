@@ -455,7 +455,11 @@ function minDistance(s1, s2) {
                         }).catch(console.error)
                         try {
                             const metadata = await mm.parseBuffer(buffer, {mimeType: response.headers["content-type"] || null});
-                            name += "." + metadata.format.container.toLowerCase()
+                            let format = metadata.format.container.toLowerCase()
+                            if (format === "mpeg") {
+                                format = "mp3"
+                            }
+                            name += "." + format
                         } catch (err) {
                             console.error(err.message);
                             const index = url.lastIndexOf(".")
