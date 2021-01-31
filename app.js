@@ -560,10 +560,10 @@ function minDistance(s1, s2) {
                         return
                     }
                     songs.sort((a, b) => {
-                        let aname = a.info.name.split(/\(|（/)[0].trim()
-                        let bname = b.info.name.split(/\(|（/)[0].trim()
-                        let scoreA = minDistance(song.name, aname) / (aname.length + 1)
-                        let scoreB = minDistance(song.name, bname) / (bname.length + 1)
+                        let aname = a.info.name
+                        let bname = b.info.name
+                        let scoreA = minDistance(song.name, aname) / aname.length
+                        let scoreB = minDistance(song.name, bname) / bname.length
                         if (Math.abs(scoreA - scoreB) < 1e-3) {
                             return 0
                         } else if (scoreA - scoreB > 0) {
@@ -577,7 +577,7 @@ function minDistance(s1, s2) {
                     })
                     let i
                     for (i = 0; i < songs.length; i++) {
-                        let {size, url, md5, br, info} = songs[0]
+                        let {size, url, md5, br, info} = songs[i]
                         if (size / 1024 / 1024 > maxSizeLimit) {
                             continue
                         }
