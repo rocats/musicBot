@@ -6,6 +6,7 @@ const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     phone = process.env.NETEASE_PHONE,
     password = process.env.NETEASE_PASSWORD
 const pageSize = 10
+const maxSizeLimit = 50
 const dbPath = './data.db'
 const source = [/*'qq', 'migu', 'kuwo', 'kugou', 'joox', 'xiami', 'youtube'*/'qq', 'kuwo', 'kugou']
 
@@ -173,6 +174,11 @@ async function musicCallback(msg, match) {
             id: sessionID,
             chatID,
             songs: result.songs
+                .sort((a, b) => {
+                    let scoreA = a.name.indexOf("翻自") ? 1 : 0
+                    let scoreB = b.name.indexOf("翻自") ? 1 : 0
+                    return scoreA - scoreB
+                })
                 .sort((a, b) => {
                     let scoreA = fields.some(field => field === a.name) ? 1 : 0
                     let scoreB = fields.some(field => field === b.name) ? 1 : 0
@@ -468,10 +474,10 @@ function minDistance(s1, s2) {
                                 name += url.substr(index)
                             }
                         }
-                        console.log(name)
+                        console.log(picUrl + "?param=200y200")
                         bot.sendAudio(chatID, buffer, {caption: caption(name, buffer.byteLength, br)}, {
                             filename: name,
-                            contentType: response.headers["content-type"] || "application/octet-stream"
+                            contentType: response.headers["content-type"] || "application/octet-stream",
                         }).then((msg) => {
                             bot.deleteMessage(chatID, msgID).catch(console.error)
                             db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
@@ -499,20 +505,32 @@ function minDistance(s1, s2) {
             let needOtherSource = true
             await check_music({id: song.id}).then(async (resp) => {
                 if (resp.body.success) {
-                    await song_url({id: song.id, cookie}).then((res) => {
-                        const {body: {data: [{url, br, freeTrialInfo, md5}]}} = res
-                        if (freeTrialInfo) {
-                            return
-                        }
-                        needOtherSource = false
-                        sendFunc(url, songTitle(song, " - "), picUrl, md5, br, {
-                            name: song.name,
-                            artists: song.ar,
-                            album: song.al
+                    const rateList = song.privilege.chargeInfoList.map(o => o.rate)
+                    rateList.push(null)
+                    let breakout = false
+                    for (let i = rateList.length - 1; i >= 0 && !breakout; i--) {
+                        await song_url({id: song.id, br: rateList[i], cookie}).then((res) => {
+                            const {body: {data: [{url, br, freeTrialInfo, md5, size}]}} = res
+                            if (freeTrialInfo) {
+                                return
+                            }
+                            if (size / 1024 / 1024 > maxSizeLimit) {
+                                let j;
+                                for (j = i - 1; j >= 0 && rateList[j] >= br; j--) ;
+                                i = j;
+                                return
+                            }
+                            breakout = true
+                            needOtherSource = false
+                            sendFunc(url, songTitle(song, " - "), picUrl, md5, br, {
+                                name: song.name,
+                                artists: song.ar,
+                                album: song.al
+                            })
+                        }).catch((err) => {
+                            console.error("获取地址失败", err)
                         })
-                    }).catch((err) => {
-                        console.error("获取地址失败", err)
-                    })
+                    }
                 }
             }).catch((err) => {
                 if (err.body && err.body.success === false) {
@@ -541,8 +559,17 @@ function minDistance(s1, s2) {
                         let scoreB = song.ar.some(ar => b.info.artists.some(artist => ar === artist))
                         return scoreB - scoreA
                     })
-                    let {size, url, md5, br, info} = songs[0]
-                    sendFunc(url, meta.name, picUrl, md5, br, info)
+                    let i
+                    for (i = 0; i < songs.length; i++) {
+                        let {size, url, md5, br, info} = songs[0]
+                        if (size / 1024 / 1024 > maxSizeLimit) {
+                            continue
+                        }
+                        sendFunc(url, meta.name, picUrl, md5, br, info)
+                    }
+                    if (i === songs.length) {
+                        errFunc('', "没有找到合适的歌曲")
+                    }
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
