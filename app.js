@@ -22,7 +22,7 @@ const match = require('./match')
 const fs = require('fs')
 const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
-const decodeKuwo = require('./kuwoDecoder')
+const {convertID3v1ToID3v2} = require('./kuwoDecoder')
 const md5Hash = require('md5')
 let db = null
 let cookie = null
@@ -384,7 +384,7 @@ function caption(name, url, byteLength, br) {
                                 return
                             }
                             if (url.indexOf("kuwo.cn") >= 0 && url.substr(url.length - 4) === ".mp3") {
-                                buffer = decodeKuwo(buffer)
+                                buffer = convertID3v1ToID3v2(buffer)
                             }
                             bot.editMessageText("就要传好了!!", {
                                 chat_id: chatID,
