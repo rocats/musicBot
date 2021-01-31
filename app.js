@@ -209,12 +209,14 @@ async function musicCallback(msg, match) {
     }
 }
 
-function caption(name, url, byteLength, br) {
+function caption(name, byteLength, br) {
     const dotIndex = name.lastIndexOf(".")
+    let format = ''
     if (dotIndex >= 0) {
+        format = name.substr(dotIndex + 1)
         name = name.substr(0, dotIndex)
     }
-    return `名称: ${name}\n格式: ${url.substr(url.lastIndexOf(".") + 1)}\n音质: ${Math.floor(br / 1000)} kbits/s\n大小: ${(byteLength / 1024 / 1024).toFixed(2)} MB`
+    return `名称: ${name}\n格式: ${format}\n音质: ${Math.floor(br / 1000)} kbits/s\n大小: ${(byteLength / 1024 / 1024).toFixed(2)} MB`
 }
 
 // 最小编辑距离
@@ -415,7 +417,7 @@ function minDistance(s1, s2) {
                             chat_id: chatID,
                             message_id: msgID,
                         }).catch(console.error)
-                        bot.sendAudio(chatID, row.file_id, {caption: caption(row.name, url, row.byte_length, br)}).then((msg) => {
+                        bot.sendAudio(chatID, row.file_id, {caption: caption(row.name, row.byte_length, br)}).then((msg) => {
                             bot.deleteMessage(chatID, msgID).catch(console.error)
                             db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
                                 err && console.error(err)
@@ -462,7 +464,7 @@ function minDistance(s1, s2) {
                             }
                         }
                         console.log(name)
-                        bot.sendAudio(chatID, buffer, {caption: caption(name, url, buffer.byteLength, br)}, {
+                        bot.sendAudio(chatID, buffer, {caption: caption(name, buffer.byteLength, br)}, {
                             filename: name,
                             contentType: response.headers["content-type"] || "application/octet-stream"
                         }).then((msg) => {
