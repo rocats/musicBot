@@ -20,3 +20,10 @@ PROXY=localhost:20171 TELEGRAM_APITOKEN=1447999257:AAFcupdx7aTRDqyhN_xFl8hDINPDT
 yarn global add pm2
 PROXY=localhost:20171 TELEGRAM_APITOKEN=1447999257:AAFcupdx7aTRDqyhN_xFl8hDINPDThOyI2I pm2 start app.js --name musicbot
 ```
+
+## TODO
+
+-[ ] 无损格式的TAG信息(metadata)补全
+   -[ ] flac
+   -[ ] ape
+   -[ ] aac
