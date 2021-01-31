@@ -5,7 +5,7 @@ const md5check = !(process.env.NO_MD5CHECK && (process.env.NO_MD5CHECK === "1" |
 const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     phone = process.env.NETEASE_PHONE,
     password = process.env.NETEASE_PASSWORD
-const pageSize = 10
+const pageSize = 8
 const maxSizeLimit = 50
 const dbPath = './data.db'
 const source = [/*'qq', 'migu', 'kuwo', 'kugou', 'joox', 'xiami', 'youtube'*/'qq', 'kuwo', 'kugou']
@@ -134,7 +134,7 @@ function makeMatrix(session) {
         text: `取消`,
         callback_data: `${session.id}/close`
     })
-    controller.length > 2 && matrix.push(controller)
+    matrix.push(controller)
     return matrix
 }
 
@@ -180,9 +180,11 @@ async function musicCallback(msg, match) {
                     return scoreA - scoreB
                 })
                 .sort((a, b) => {
-                    let scoreA = fields.some(field => field === a.name) ? 1 : 0
-                    let scoreB = fields.some(field => field === b.name) ? 1 : 0
-                    return scoreB - scoreA
+                    let scoreA = 0x3f3f3f3f
+                    fields.forEach(field => scoreA = Math.min(scoreA, minDistance(field, a.name) / (a.name.length + 1)))
+                    let scoreB = 0x3f3f3f3f
+                    fields.forEach(field => scoreB = Math.min(scoreB, minDistance(field, b.name) / (b.name.length + 1)))
+                    return scoreA - scoreB
                 })
                 .sort((a, b) => {
                     let scoreA = (a.ar && a.ar.some(artist => fields.some(field => field === artist.name))) ? 1 : 0
@@ -551,8 +553,8 @@ function minDistance(s1, s2) {
                         return
                     }
                     songs.sort((a, b) => {
-                        let scoreA = minDistance(song.name, a.info.name)
-                        let scoreB = minDistance(song.name, b.info.name)
+                        let scoreA = minDistance(song.name, a.info.name) / (a.info.name.length + 1)
+                        let scoreB = minDistance(song.name, b.info.name) / (b.info.name.length + 1)
                         return scoreA - scoreB
                     }).sort((a, b) => {
                         let scoreA = song.ar.some(ar => a.info.artists.some(artist => ar === artist))
