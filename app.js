@@ -5,7 +5,7 @@ const md5check = !(process.env.NO_MD5CHECK && (process.env.NO_MD5CHECK === "1" |
 const countrycode = parseInt(process.env.NETEASE_COUNTRYCODE),
     phone = process.env.NETEASE_PHONE,
     password = process.env.NETEASE_PASSWORD
-const pageSize = 8
+const pageSize = 10
 const maxSizeLimit = 50
 const dbPath = './data.db'
 const source = [/*'qq', 'migu', 'kuwo', 'kugou', 'joox', 'xiami', 'youtube'*/'qq', 'kuwo', 'kugou']
@@ -175,16 +175,23 @@ async function musicCallback(msg, match) {
             chatID,
             songs: result.songs
                 .sort((a, b) => {
-                    let scoreA = a.name.indexOf("翻自") ? 1 : 0
-                    let scoreB = b.name.indexOf("翻自") ? 1 : 0
+                    let scoreA = a.name.indexOf("翻自") || a.name.indexOf("cover") || a.name.indexOf("Cover") ? 1 : 0
+                    let scoreB = b.name.indexOf("翻自") || b.name.indexOf("cover") || b.name.indexOf("Cover") ? 1 : 0
                     return scoreA - scoreB
                 })
                 .sort((a, b) => {
+                    let aname = a.name.split(/\(|（/)[0].trim()
+                    let bname = b.name.split(/\(|（/)[0].trim()
                     let scoreA = 0x3f3f3f3f
-                    fields.forEach(field => scoreA = Math.min(scoreA, minDistance(field, a.name) / (a.name.length + 1)))
                     let scoreB = 0x3f3f3f3f
-                    fields.forEach(field => scoreB = Math.min(scoreB, minDistance(field, b.name) / (b.name.length + 1)))
-                    return scoreA - scoreB
+                    fields.forEach(field => scoreA = Math.min(scoreA, minDistance(field, aname) / aname.length))
+                    fields.forEach(field => scoreB = Math.min(scoreB, minDistance(field, bname) / bname.length))
+                    if (Math.abs(scoreA - scoreB) < 1e-3) {
+                        return 0
+                    } else if (scoreA - scoreB > 0) {
+                        return 1
+                    }
+                    return -1
                 })
                 .sort((a, b) => {
                     let scoreA = (a.ar && a.ar.some(artist => fields.some(field => field === artist.name))) ? 1 : 0
@@ -553,9 +560,16 @@ function minDistance(s1, s2) {
                         return
                     }
                     songs.sort((a, b) => {
-                        let scoreA = minDistance(song.name, a.info.name) / (a.info.name.length + 1)
-                        let scoreB = minDistance(song.name, b.info.name) / (b.info.name.length + 1)
-                        return scoreA - scoreB
+                        let aname = a.info.name.split(/\(|（/)[0].trim()
+                        let bname = b.info.name.split(/\(|（/)[0].trim()
+                        let scoreA = minDistance(song.name, aname) / (aname.length + 1)
+                        let scoreB = minDistance(song.name, bname) / (bname.length + 1)
+                        if (Math.abs(scoreA - scoreB) < 1e-3) {
+                            return 0
+                        } else if (scoreA - scoreB > 0) {
+                            return 1
+                        }
+                        return -1
                     }).sort((a, b) => {
                         let scoreA = song.ar.some(ar => a.info.artists.some(artist => ar === artist))
                         let scoreB = song.ar.some(ar => b.info.artists.some(artist => ar === artist))
