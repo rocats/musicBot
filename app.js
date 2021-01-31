@@ -396,8 +396,9 @@ function minDistance(s1, s2) {
             }
             i = parseInt(i)
             const song = session.songs[i]
+            let picUrl = song.al ? song.al.picUrl : null
 
-            const sendFunc = function (url, name, md5, br, info) {
+            const sendFunc = function (url, name, picUrl, md5, br, info) {
                 if (info && info.name) {
                     name = info.name
                     if (info.artists.length) {
@@ -446,7 +447,7 @@ function minDistance(s1, s2) {
                             errFunc(name, "MD5校验失败")
                             return
                         }
-                        if (url.substr(url.length - 4) === ".mp3") {
+                        if (info && url.substr(url.length - 4) === ".mp3") {
                             buffer = convertID3v1ToID3v2(buffer, info.name, info.artists.map((artist) => artist.name).join('/'), info.album.name)
                         }
                         bot.editMessageText("就要传好了!!", {
@@ -504,7 +505,11 @@ function minDistance(s1, s2) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - "), md5, br)
+                        sendFunc(url, songTitle(song, " - "), picUrl, md5, br, {
+                            name: song.name,
+                            artists: song.ar,
+                            album: song.al
+                        })
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -537,7 +542,7 @@ function minDistance(s1, s2) {
                         return scoreB - scoreA
                     })
                     let {size, url, md5, br, info} = songs[0]
-                    sendFunc(url, meta.name, md5, br, info)
+                    sendFunc(url, meta.name, picUrl, md5, br, info)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
