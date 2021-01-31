@@ -23,7 +23,7 @@ PROXY=localhost:20171 TELEGRAM_APITOKEN=1447999257:AAFcupdx7aTRDqyhN_xFl8hDINPDT
 
 ## TODO
 
--[ ] 无损格式的TAG信息(metadata)补全
-   -[ ] flac
-   -[ ] ape
-   -[ ] aac
+- [ ] 无损格式的TAG信息(metadata)补全
+   - [ ] flac
+   - [ ] ape
+   - [ ] aac
