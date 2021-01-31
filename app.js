@@ -162,8 +162,8 @@ async function musicCallback(msg, match) {
             return
         }
         const result = resp.body.result
-        if (!result.songs) {
-            bot.sendMessage(chatID, '无搜索结果', {
+        if (!result || !result.songs) {
+            bot.sendMessage(chatID, '找不到呢... 可能被河蟹了...', {
                 reply_to_message_id: sessionID
             }).catch(console.error)
             return
