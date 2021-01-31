@@ -25,6 +25,7 @@ const os = require('os')
 const sqlite3 = require('sqlite3').verbose();
 const {convertID3v1ToID3v2} = require('./kuwoDecoder')
 const md5Hash = require('md5')
+const mm = require('music-metadata');
 let db = null
 let cookie = null
 let botUsername = ''
@@ -408,62 +409,73 @@ function minDistance(s1, s2) {
                     if (err) {
                         return
                     }
-                    if (!row) {
-                        bot.editMessageText("找到了! 在下了在下了!!", {
+                    if (row) {
+                        console.log("hit", song.id, from_domain)
+                        bot.editMessageText("马上传好了!!", {
                             chat_id: chatID,
                             message_id: msgID,
                         }).catch(console.error)
-                        console.log("miss", song.id, from_domain)
-                        // 本地下载并上传
-                        console.log(`song.id: ${song.id}, url: ${url}, info: ${JSON.stringify(info)}`)
-                        request({
-                            url,
-                            encoding: null
-                        }, (err, response, buffer) => {
-                            if (err) {
-                                errFunc(err, "下载失败")
-                                return
-                            }
-                            if (md5check && md5 && md5Hash(buffer) !== md5.toLowerCase()) {
-                                errFunc(name, "MD5校验失败")
-                                return
-                            }
-                            if (url.substr(url.length - 4) === ".mp3") {
-                                buffer = convertID3v1ToID3v2(buffer, info.name, info.artists.map((artist) => artist.name).join('/'), info.album.name)
-                            }
-                            bot.editMessageText("就要传好了!!", {
-                                chat_id: chatID,
-                                message_id: msgID,
-                            }).catch(console.error)
-                            bot.sendAudio(chatID, buffer, {caption: caption(name, url, buffer.byteLength, br)}, {
-                                filename: name,
-                                contentType: response.headers["content-type"]
-                            }).then((msg) => {
-                                bot.deleteMessage(chatID, msgID).catch(console.error)
-                                db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
-                                    err && console.error(err)
-                                })
-                                db.run(`INSERT INTO recollections VALUES (?,?,?,?,?,?)`, [song.id, from_domain, msg.audio.file_id, buffer.byteLength, botUsername, name], (err) => {
-                                    err && console.error(err)
-                                })
-                            }).catch((err) => {
-                                errFunc(err, "上传失败")
+                        bot.sendAudio(chatID, row.file_id, {caption: caption(row.name, url, row.byte_length, br)}).then((msg) => {
+                            bot.deleteMessage(chatID, msgID).catch(console.error)
+                            db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
+                                err && console.error(err)
                             })
+                        }).catch((err) => {
+                            errFunc(err, "上传失败")
                         })
                         return
                     }
-                    console.log("hit", song.id, from_domain)
-                    bot.editMessageText("马上传好了!!", {
+                    bot.editMessageText("找到了! 在下了在下了!!", {
                         chat_id: chatID,
                         message_id: msgID,
                     }).catch(console.error)
-                    bot.sendAudio(chatID, row.file_id, {caption: caption(row.name, url, row.byte_length, br)}).then((msg) => {
-                        bot.deleteMessage(chatID, msgID).catch(console.error)
-                        db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
-                            err && console.error(err)
+                    console.log("miss", song.id, from_domain)
+                    // 本地下载并上传
+                    console.log(`song.id: ${song.id}, url: ${url}, info: ${JSON.stringify(info)}`)
+                    request({
+                        url,
+                        encoding: null
+                    }, async (err, response, buffer) => {
+                        if (err) {
+                            errFunc(err, "下载失败")
+                            return
+                        }
+                        if (md5check && md5 && md5Hash(buffer) !== md5.toLowerCase()) {
+                            errFunc(name, "MD5校验失败")
+                            return
+                        }
+                        if (url.substr(url.length - 4) === ".mp3") {
+                            buffer = convertID3v1ToID3v2(buffer, info.name, info.artists.map((artist) => artist.name).join('/'), info.album.name)
+                        }
+                        bot.editMessageText("就要传好了!!", {
+                            chat_id: chatID,
+                            message_id: msgID,
+                        }).catch(console.error)
+                        try {
+                            const metadata = await mm.parseBuffer(buffer, {mimeType: response.headers["content-type"] || null});
+                            name += "." + metadata.format.container.toLowerCase()
+                        } catch (err) {
+                            console.error(err.message);
+                            const index = url.lastIndexOf(".")
+                            if (index > url.indexOf("/")) {
+                                name += url.substr(index)
+                            }
+                        }
+                        console.log(name)
+                        bot.sendAudio(chatID, buffer, {caption: caption(name, url, buffer.byteLength, br)}, {
+                            filename: name,
+                            contentType: response.headers["content-type"] || "application/octet-stream"
+                        }).then((msg) => {
+                            bot.deleteMessage(chatID, msgID).catch(console.error)
+                            db.run(`DELETE FROM sessions WHERE id = ?`, [sessionID], (err) => {
+                                err && console.error(err)
+                            })
+                            db.run(`INSERT INTO recollections VALUES (?,?,?,?,?,?)`, [song.id, from_domain, msg.audio.file_id, buffer.byteLength, botUsername, name], (err) => {
+                                err && console.error(err)
+                            })
+                        }).catch((err) => {
+                            errFunc(err, "上传失败")
                         })
-                    }).catch((err) => {
-                        errFunc(err, "上传失败")
                     })
                 })
             }
@@ -486,7 +498,7 @@ function minDistance(s1, s2) {
                             return
                         }
                         needOtherSource = false
-                        sendFunc(url, songTitle(song, " - ") + url.substr(url.lastIndexOf(".")), md5, br)
+                        sendFunc(url, songTitle(song, " - "), md5, br)
                     }).catch((err) => {
                         console.error("获取地址失败", err)
                     })
@@ -519,7 +531,7 @@ function minDistance(s1, s2) {
                         return scoreB - scoreA
                     })
                     let {size, url, md5, br, info} = songs[0]
-                    sendFunc(url, meta.name + url.substr(url.lastIndexOf(".")), md5, br, info)
+                    sendFunc(url, meta.name, md5, br, info)
                 }).catch((err) => {
                     errFunc(err, "匹配地址失败")
                 })
